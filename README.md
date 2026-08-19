@@ -1,6 +1,6 @@
 # Earth Empire Advanced
 
-A collection of **Tampermonkey userscripts** that enhance the [Earth Empires](https://www.earthempires.com) browser game experience � adding sortable tables, search history, and data extraction tools directly in your browser.
+A collection of **Tampermonkey userscripts** that enhance the [Earth Empires](https://www.earthempires.com) browser game experience : adding sortable tables, search history, and more to come.
 
 ---
 
@@ -21,7 +21,7 @@ All scripts are located in the [`tampermonkey/`](https://github.com/skylozerus/e
 1. Install the [Tampermonkey](https://www.tampermonkey.net/) browser extension
 2. Click on any script link in the table above
 3. Click the **Raw** button on GitHub
-4. Tampermonkey will detect the userscript and prompt you to install it � click **Install**
+4. Tampermonkey will detect the userscript and prompt you to install it --> click **Install**
 
 ---
 
