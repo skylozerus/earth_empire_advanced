@@ -1,0 +1,22 @@
+{
+  "name": "earth-stats",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Earth Empires Spyop Tracker — parse, store and analyze spy operation data",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "cheerio": "^1.0.0",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.8.0"
+  }
+}

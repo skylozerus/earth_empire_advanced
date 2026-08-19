@@ -1,0 +1,556 @@
+// ==UserScript==
+// @name         Earth Empires – Scores Table Enhancer
+// @namespace    https://github.com/local/ee-enhancer
+// @version      2.0
+// @description  Adds sortable columns and a live name filter (string or RegExp) to the EE search-results table.
+// @author       you
+// @match        https://*.earthempires.com/*/advanced_search*
+// @match        https://earthempires.com/*/advanced_search*
+// @grant        GM_addStyle
+// @run-at       document-end
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    // ─── Styles ──────────────────────────────────────────────────────────────────
+
+    GM_addStyle(`
+        /* ── Filter / control bar ─────────────────────────────────────── */
+        #ee-enhancer-bar {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 8px 10px;
+            margin-bottom: 6px;
+            background: linear-gradient(135deg, #0a0a2a 0%, #001a3a 60%, #002b1a 100%);
+            border: 1px solid #2a6a4a;
+            border-radius: 6px;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-size: 12px;
+            color: #c0d8c0;
+            box-shadow: 0 2px 10px rgba(0,80,40,0.4);
+        }
+        #ee-enhancer-bar label {
+            font-weight: bold;
+            color: #6fd98a;
+            white-space: nowrap;
+        }
+        #ee-filter-input, #ee-my-acres {
+            background: #0d1f14;
+            color: #a0f0b0;
+            border: 1px solid #2a6a4a;
+            border-radius: 4px;
+            padding: 3px 7px;
+            font-size: 12px;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        #ee-filter-input { width: 220px; }
+        #ee-my-acres { width: 80px; }
+        #ee-filter-input:focus, #ee-my-acres:focus {
+            border-color: #4caf70;
+            box-shadow: 0 0 6px rgba(76,175,112,0.45);
+        }
+        #ee-filter-input.invalid {
+            border-color: #e05050;
+            box-shadow: 0 0 6px rgba(220,60,60,0.45);
+        }
+        #ee-regexp-toggle {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            color: #88c8a0;
+            user-select: none;
+        }
+        #ee-regexp-toggle input { cursor: pointer; accent-color: #4caf70; }
+        #ee-filter-count {
+            color: #7abf90;
+            font-style: italic;
+            margin-left: 4px;
+        }
+        #ee-reset-btn {
+            background: #0d2a1a;
+            color: #6fd98a;
+            border: 1px solid #2a6a4a;
+            border-radius: 4px;
+            padding: 3px 10px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        #ee-reset-btn:hover {
+            background: #1a4a2a;
+            border-color: #4caf70;
+        }
+
+        /* ── Hint / example row ────────────────────────────────────────── */
+        #ee-hint-row {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding-top: 5px;
+            border-top: 1px solid #1a4a2a;
+            margin-top: 2px;
+            font-size: 11px;
+            color: #5a9a70;
+        }
+        #ee-hint-row .ee-hint-label {
+            color: #4a8a60;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        .ee-example-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: #0a1f10;
+            border: 1px solid #1f5a30;
+            border-radius: 4px;
+            padding: 2px 7px;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+            white-space: nowrap;
+        }
+        .ee-example-chip:hover {
+            background: #122a18;
+            border-color: #3a8a50;
+        }
+        .ee-example-chip code {
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 10.5px;
+            color: #7adfa0;
+            background: none;
+            border: none;
+            padding: 0;
+        }
+        .ee-example-chip .ee-chip-desc {
+            color: #6a9a78;
+            font-size: 10px;
+        }
+
+        /* ── Sortable header cells ─────────────────────────────────────── */
+        .ee-sortable {
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+            padding-right: 18px;
+            position: relative;
+            transition: color 0.15s;
+        }
+        .ee-sortable:hover { color: #a0ffb0; }
+        .ee-sortable::after {
+            content: '⇅';
+            position: absolute;
+            right: 3px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 10px;
+            opacity: 0.45;
+        }
+        .ee-sort-asc::after  { content: '▲'; opacity: 0.9; color: #6fd98a; }
+        .ee-sort-desc::after { content: '▼'; opacity: 0.9; color: #6fd98a; }
+
+        /* ── Row highlight on hover ────────────────────────────────────── */
+        table.scores tr.rt:hover td {
+            background-color: #0a2a18 !important;
+            transition: background-color 0.12s;
+        }
+
+        table.scores td, th {
+            font-size: 0.65rem !important;
+        }
+    `);
+
+    // ─── Find the scores table ────────────────────────────────────────────────────
+
+    const scoresTable = document.querySelector('table.scores');
+    if (!scoresTable) {return;}
+
+    const thead = scoresTable.querySelector('tr.scorestitle');
+    if (!thead) {return;}
+
+    // ─── Column definitions ───────────────────────────────────────────────────────
+
+    const COLUMNS = [
+        { index: 0, name: 'Country',  type: 'text'},
+        { index: 1, name: 'Land',     type: 'number'},
+        { index: 2, name: 'Networth', type: 'currency'},
+        { index: 3, name: 'Spec',     type: 'text'},
+        { index: 4, name: 'DR',       type: 'number'},
+        { index: 5, name: 'Defense',  type: 'defense'},
+        { index: 6, name: 'GA',      type: 'number'},
+        { index: 7, name: 'SSLand',  type: 'number'},
+        { index: 8, name: 'SSL/NW',  type: 'number'},
+    ];
+
+    // Add GA Units, SS Land and SS/NW column headers if not present
+    if (thead.children.length === 6) {
+        const th = document.createElement('th');
+        th.textContent = COLUMNS[6].name;
+        thead.appendChild(th);
+
+        const th2 = document.createElement('th');
+        th2.textContent = COLUMNS[7].name;
+        thead.appendChild(th2);
+
+        const th3 = document.createElement('th');
+        th3.textContent = COLUMNS[8].name;
+        thead.appendChild(th3);
+    }
+
+
+
+    // ─── Value extractors ─────────────────────────────────────────────────────────
+
+    function cellText(cell) {
+        return (cell.textContent || '').trim();
+    }
+
+    function parseValue(cell, type) {
+        const raw = cellText(cell);
+        switch (type) {
+        case 'number': {
+            return parseFloat(raw.replace(/,/g, '')) || 0;
+        }
+        case 'currency': {
+            const n = parseFloat(raw.replace(/[$,]/g, ''));
+            return isNaN(n) ? 0 : n;
+        }
+        case 'defense': {
+            // Possible: "?", "3736", "16,580", "433.8k"
+            if (raw === '?') {return -1;}
+            const cleaned = raw.replace(/,/g, '');
+            if (/k$/i.test(cleaned)) {
+                return parseFloat(cleaned) * 1000;
+            }
+            if (/M$/i.test(cleaned)) {
+                return parseFloat(cleaned) * 1000000;
+            }
+            return parseFloat(cleaned) || -1;
+        }
+        case 'text':
+        default: {
+            const a = cell.querySelector('a');
+            return (a ? a.textContent : raw).trim().toLowerCase();
+        }
+        }
+    }
+
+    // ─── Collect all rows once ────────────────────────────────────────────────────
+
+    function getAllRows() {
+        return Array.from(scoresTable.querySelectorAll('tr'))
+            .filter(tr => tr !== thead)
+            .map(tr => {
+                const cells = tr.querySelectorAll('td');
+                const isSeparator = cells.length === 1 && cells[0].colSpan >= 6;
+
+                if (isSeparator) {
+                    cells[0].colSpan = 8;
+                } else if (cells.length === 6) {
+                    const td = document.createElement('td');
+                    td.className = 'ct';
+                    td.style.color = '#7abf90';
+                    tr.appendChild(td);
+
+                    const td2 = document.createElement('td');
+                    td2.className = 'ct';
+                    td2.style.color = '#7abf90';
+                    tr.appendChild(td2);
+
+                    const td3 = document.createElement('td');
+                    td3.className = 'ct';
+                    td3.style.color = '#f0c040';
+                    tr.appendChild(td3);
+                }
+
+                const countryCell = cells[0];
+                const a = countryCell && !isSeparator ? countryCell.querySelector('a') : null;
+                return {
+                    tr,
+                    isSeparator,
+                    countryText: a ? a.textContent.trim()
+                        : (!isSeparator && countryCell ? cellText(countryCell) : ''),
+                };
+            });
+    }
+
+    // ─── State ────────────────────────────────────────────────────────────────────
+
+    let sortColIndex  = -1;
+    let sortAscending = true;
+    const originalRows = getAllRows();
+
+    // ─── Build control bar ────────────────────────────────────────────────────────
+
+    // Encode special HTML characters so patterns are safe inside data-* attributes
+    function htmlEncode(str) {
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    // Decode to revert HTML entities back to their original characters
+    function _htmlDecode(str) {
+        const doc = new DOMParser().parseFromString(str, 'text/html');
+        return doc.documentElement.textContent;
+    }
+
+    const datapatterns = [
+        '^(.*(?:0|5)\\)$).*',
+        '^(?!.*(?:2|3|8)\\)$).*',
+        '^.*\\(#2\\d\\)$',
+    ];
+    const bar = document.createElement('div');
+    bar.id = 'ee-enhancer-bar';
+    const examples = datapatterns.reduce(function(a, c, index) {
+        const encoded = htmlEncode(c);
+        return a + '<span class="ee-example-chip" data-index="' + index + '" data-pattern="' + encoded
+            + '" data-regexp="true"><code>' + encoded + '</code></span>\n';
+    }, '');
+    bar.innerHTML =
+        '<label for="ee-my-acres" title="Used to calculate Min GA Units">\uD83D\uDDFA\uFE0F Built Acres:</label>' +
+        '<input id="ee-my-acres" type="number" placeholder="Acres..." autocomplete="off" />' +
+        '<span style="border-left: 1px solid #1a4a2a; margin: 0 4px; height: 18px;"></span>' +
+        '<label for="ee-filter-input">\uD83D\uDD0D Filter Country:</label>' +
+        '<input id="ee-filter-input" type="text" placeholder="name or /regexp/\u2026" autocomplete="off" />' +
+        '<label id="ee-regexp-toggle" title="Treat filter as a JavaScript RegExp">' +
+            '<input type="checkbox" id="ee-regexp-cb" /> RegExp' +
+        '</label>' +
+        '<span id="ee-filter-count"></span>' +
+        '<button id="ee-reset-btn">\u21BA Reset Sort &amp; Filter</button>' +
+        // ── Hint row with clickable examples ──
+        '<div id="ee-hint-row">' +
+         '<span class="ee-hint-label">\uD83D\uDCA1 Examples:</span>' +
+          examples +
+        '</div>';
+
+    scoresTable.parentNode.insertBefore(bar, scoresTable);
+
+    const myAcresInput = document.getElementById('ee-my-acres');
+    const filterInput = document.getElementById('ee-filter-input');
+    const regexpCb    = document.getElementById('ee-regexp-cb');
+    const filterCount = document.getElementById('ee-filter-count');
+    const resetBtn    = document.getElementById('ee-reset-btn');
+
+    // Load saved acres from localStorage
+    myAcresInput.value = localStorage.getItem('ee_my_acres') || '';
+
+    // ─── Sortable headers ─────────────────────────────────────────────────────────
+
+    const headerCells = thead.querySelectorAll('th');
+
+    headerCells.forEach((th, i) => {
+        th.classList.add('ee-sortable');
+        th.title = 'Sort by ' + th.textContent.trim();
+        th.addEventListener('click', function() { onHeaderClick(i); });
+    });
+
+    function clearSortIndicators() {
+        headerCells.forEach(function(th) {
+            th.classList.remove('ee-sort-asc', 'ee-sort-desc');
+        });
+    }
+
+    function onHeaderClick(colIndex) {
+        if (sortColIndex === colIndex) {
+            sortAscending = !sortAscending;
+        } else {
+            sortColIndex  = colIndex;
+            sortAscending = true;
+        }
+        clearSortIndicators();
+        headerCells[colIndex].classList.add(sortAscending ? 'ee-sort-asc' : 'ee-sort-desc');
+        renderTable();
+    }
+
+    // ─── Filter helpers ───────────────────────────────────────────────────────────
+
+    function buildFilter(value, isRegexp) {
+        if (!value) {return null;}
+        if (isRegexp) {
+            const m = value.match(/^\/(.+)\/([gimsuy]*)$/);
+            try {
+                return m ? new RegExp(m[1], m[2]) : new RegExp(value, 'i');
+            } catch (_e) {
+                return null;   // bad regexp
+            }
+        }
+        return value.toLowerCase();
+    }
+
+    function rowMatchesFilter(record, filter) {
+        if (filter === null) {return true;}
+        if (filter instanceof RegExp) {return filter.test(record.countryText);}
+        return record.countryText.toLowerCase().indexOf(filter) !== -1;
+    }
+
+    // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+    /** Read the player's current networth from the .topbar element. */
+    function getMyNW() {
+        let nwEl = document.getElementById('topbar_networth');
+        if (!nwEl) {
+            const tds = document.querySelectorAll('.topbar td');
+            for (let i = 0; i < tds.length; i++) {
+                if (tds[i].textContent.includes('Networth: $')) {
+                    nwEl = tds[i];
+                    break;
+                }
+            }
+        }
+        if (!nwEl) { return 0; }
+        const match = nwEl.textContent.match(/[0-9,]+/);
+        return match ? (parseFloat(match[0].replace(/,/g, '')) || 0) : 0;
+    }
+
+    /**
+     * Calculate Ghost Acres and SS Land for one table row and write the results
+     * into cells[6] and cells[7].
+     */
+    function calcRowStats(tr, myAcres, myNW) {
+        const cells = tr.querySelectorAll('td');
+        if (cells.length < 9) { return; }
+
+        const targetLand = parseValue(cells[1], 'number');
+        const targetNW   = parseValue(cells[2], 'currency');
+        const targetDR   = parseValue(cells[4], 'number');
+
+        let ga = 0;
+        let ssLand = 0;
+
+        if (myAcres > 0) {
+            const builtAcres  = myAcres;
+            const targetBuilt = targetLand;
+
+            // Ghost Acres
+            ga = Math.round((builtAcres / 20) * targetBuilt * 0.032);
+
+            // SS Land
+            if (myNW > 0 && targetNW > 0 && targetBuilt > 0) {
+                const maxCapture = 0.10 * Math.min(builtAcres, targetBuilt);
+                const nwRatio    = Math.min(myNW, targetNW) / Math.max(myNW, targetNW);
+                const landRatio  = Math.min(builtAcres, targetBuilt) / Math.max(builtAcres, targetBuilt);
+                const rawRatio   = Math.pow(nwRatio, 0.6) * Math.pow(landRatio, 0.6);
+                const fDr        = targetDR <= 4 ? 1.0 : (4.0 / targetDR);
+
+                ssLand = Math.max(10, Math.floor(maxCapture * rawRatio * fDr));
+            }
+        }
+
+        const coefficient = (ssLand / targetNW * 1000000).toFixed(1)
+        cells[6].textContent = ga     > 0 ? ga.toLocaleString() : '-';
+        cells[7].textContent = ssLand > 0 ? ssLand.toLocaleString() : '-';
+        cells[8].textContent = ssLand > 0 ? coefficient.toLocaleString() : '-';
+    }
+
+    // ─── Render ───────────────────────────────────────────────────────────────────
+
+    function renderTable() {
+        const rawFilter = filterInput.value.trim();
+        const isRegexp  = regexpCb.checked;
+        const filter    = buildFilter(rawFilter, isRegexp);
+
+        // Validate regexp
+        if (isRegexp && rawFilter) {
+            if (filter === null) {
+                filterInput.classList.add('invalid');
+                filterCount.textContent = '\u26a0 invalid regexp';
+                return;
+            }
+        }
+        filterInput.classList.remove('invalid');
+
+        const myAcres = parseFloat(myAcresInput.value) || 0;
+        const myNW    = getMyNW();
+
+        const dataRows = originalRows.filter(function(r) { return !r.isSeparator; });
+
+        // Recalculate dynamic columns before sorting/filtering
+        dataRows.forEach(function(r) { calcRowStats(r.tr, myAcres, myNW); });
+
+        const filtered = dataRows.filter(function(r) { return rowMatchesFilter(r, filter); });
+
+        // Sort
+        if (sortColIndex >= 0) {
+            const col = COLUMNS[sortColIndex];
+            const asc = sortAscending;
+            filtered.sort(function(a, b) {
+                const va = parseValue(a.tr.querySelectorAll('td')[col.index], col.type);
+                const vb = parseValue(b.tr.querySelectorAll('td')[col.index], col.type);
+                const cmp = (typeof va === 'string') ? va.localeCompare(vb) : (va - vb);
+                return asc ? cmp : -cmp;
+            });
+        }
+
+        // Update count
+        filterCount.textContent = rawFilter
+            ? (filtered.length + ' / ' + dataRows.length + ' countries')
+            : (dataRows.length + ' countries');
+
+        // Hide everything first, then re-append in order
+        originalRows.forEach(function(r) { r.tr.style.display = 'none'; });
+        filtered.forEach(function(r) {
+            r.tr.style.display = '';
+            scoresTable.appendChild(r.tr);
+        });
+    }
+
+    // ─── Reset ────────────────────────────────────────────────────────────────────
+
+    function resetTable() {
+        sortColIndex  = -1;
+        sortAscending = true;
+        filterInput.value = '';
+        regexpCb.checked  = false;
+        filterInput.classList.remove('invalid');
+        clearSortIndicators();
+
+        const myAcres = parseFloat(myAcresInput.value) || 0;
+        const myNW    = getMyNW();
+
+        originalRows.forEach(function(r) {
+            r.tr.style.display = '';
+            scoresTable.appendChild(r.tr);
+            if (!r.isSeparator) { calcRowStats(r.tr, myAcres, myNW); }
+        });
+
+        filterCount.textContent =
+            originalRows.filter(function(r) { return !r.isSeparator; }).length + ' countries';
+    }
+
+    // ─── Listeners ────────────────────────────────────────────────────────────────
+
+    myAcresInput.addEventListener('input', function() {
+        localStorage.setItem('ee_my_acres', myAcresInput.value);
+        renderTable();
+    });
+    filterInput.addEventListener('input', renderTable);
+    regexpCb.addEventListener('change', renderTable);
+    resetBtn.addEventListener('click', resetTable);
+
+    // Clickable example chips – click to paste pattern into the filter
+    // Must query inside `bar` since the chips are not yet in the document at this point
+    bar.querySelectorAll('.ee-example-chip').forEach(function(chip) {
+        chip.addEventListener('click', function() {
+            // getAttribute returns the decoded value automatically (browser unescapes &quot; etc.)
+            filterInput.value = chip.getAttribute('data-pattern');
+            regexpCb.checked  = chip.getAttribute('data-regexp') === 'true';
+            renderTable();
+            filterInput.focus();
+        });
+    });
+
+
+    // ─── Init ─────────────────────────────────────────────────────────────────────
+
+    resetTable();
+
+})();
