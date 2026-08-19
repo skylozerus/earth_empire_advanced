@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         Earth Empires – News Search History
-// @namespace    https://github.com/local/ee-enhancer
+// @namespace    https://github.com/skylozerus/earth_empire_advanced
 // @version      1.1
 // @description  Saves the last 5 searched country numbers and adds quick-search buttons above the news form.
-// @author       you
+// @author       skylozerus
 // @match        https://*.earthempires.com/*/news*
 // @match        https://earthempires.com/*/news*
 // @grant        GM_addStyle

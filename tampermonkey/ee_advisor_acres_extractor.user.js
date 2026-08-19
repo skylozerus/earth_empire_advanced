@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         Earth Empires – Advisor Acres Extractor
-// @namespace    https://github.com/local/ee-enhancer
+// @namespace    https://github.com/skylozerus/earth_empire_advanced
 // @version      1.0
 // @description  Extracts built acres (Land minus Unused Lands) from the Advisor page and stores it in localStorage.
-// @author       you
+// @author       skylozerus
 // @match        https://*.earthempires.com/*/advisor*
 // @match        https://earthempires.com/*/advisor*
 // @grant        none

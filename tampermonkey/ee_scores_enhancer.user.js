@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         Earth Empires – Scores Table Enhancer
-// @namespace    https://github.com/local/ee-enhancer
+// @namespace    https://github.com/skylozerus/earth_empire_advanced
 // @version      2.4
 // @description  Adds sortable columns and a live name filter (string or RegExp) to the EE search-results table.
-// @author       you
+// @author       skylozerus
 // @match        https://*.earthempires.com/*/advanced_search*
 // @match        https://earthempires.com/*/advanced_search*
 // @grant        GM_addStyle
