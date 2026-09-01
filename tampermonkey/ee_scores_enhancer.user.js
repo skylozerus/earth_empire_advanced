@@ -240,6 +240,31 @@
             50%  { box-shadow: 0 0 22px rgba(255,80,20,0.8); border-color: #ff4400; }
             100% { box-shadow: 0 0 10px rgba(200,40,0,0.4); border-color: #cc2200; }
         }
+
+        /* ── Low-NW warning icon ────────────────────────────────────────── */
+        .ee-nw-warn {
+            display: none;
+            margin-left: 5px;
+            font-size: 11px;
+            font-weight: bold;
+            color: #ffcc00;
+            background: rgba(80,50,0,0.65);
+            border: 1px solid #aa8800;
+            border-radius: 3px;
+            padding: 0px 3px;
+            cursor: default;
+            vertical-align: middle;
+            line-height: 1.4;
+            animation: nw-warn-pulse 2.4s ease-in-out infinite;
+        }
+        .ee-nw-warn.visible {
+            display: inline-block;
+        }
+        @keyframes nw-warn-pulse {
+            0%   { box-shadow: 0 0 3px rgba(255,200,0,0.3);  border-color: #aa8800; }
+            50%  { box-shadow: 0 0 9px rgba(255,210,0,0.75); border-color: #ffcc00; }
+            100% { box-shadow: 0 0 3px rgba(255,200,0,0.3);  border-color: #aa8800; }
+        }
     `);
 
     // ─── Find the scores table ────────────────────────────────────────────────────
@@ -411,6 +436,14 @@
                                 newsLink.style.transform = 'scale(1)';
                             });
                             a.parentNode.insertBefore(newsLink, a.nextSibling);
+
+                            // Placeholder for low-NW warning icon (toggled in calcRowStats)
+                            if (!countryCell.querySelector('.ee-nw-warn')) {
+                                const warnSpan = document.createElement('span');
+                                warnSpan.className = 'ee-nw-warn';
+                                warnSpan.textContent = '!';
+                                newsLink.parentNode.insertBefore(warnSpan, newsLink.nextSibling);
+                            }
                         }
                     }
                 }
@@ -641,6 +674,22 @@
         const targetLand = parseValue(cells[1], 'number');
         const targetNW   = parseValue(cells[2], 'currency');
         const targetDR   = parseValue(cells[4], 'number');
+
+        // ── Low-NW warning icon ──────────────────────────────────────────────────
+        const warnSpan = cells[0] ? cells[0].querySelector('.ee-nw-warn') : null;
+        if (warnSpan) {
+            const threshold = myNW > 0 ? myNW / 12 : 0;
+            const isLowNW   = targetNW > 0 && myNW > 0 && targetNW < threshold;
+            warnSpan.classList.toggle('visible', isLowNW);
+            if (isLowNW) {
+                const pct = ((targetNW / myNW) * 100).toFixed(1);
+                warnSpan.title =
+                    `⚠ This country's NW ($${targetNW.toLocaleString()}) is below 1/12th of your NW` +
+                    ` ($${myNW.toLocaleString()}) — only ${pct}%.`;
+            } else {
+                warnSpan.title = '';
+            }
+        }
 
         let ssLand = 0;
 
