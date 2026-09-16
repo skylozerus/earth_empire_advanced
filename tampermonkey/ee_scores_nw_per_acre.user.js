@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Earth Empires – Scores NW/Acre & News Link
 // @namespace    https://github.com/skylozerus/earth_empire_advanced
-// @version      1.1
+// @version      1.2
 // @description  Adds Networth per acre ratio column, news history links, and a searchable Special header field to the EE scores page.
 // @author       skylozerus
 // @match        https://*.earthempires.com/*/scores*
@@ -93,6 +93,8 @@
             }
         }
 
+        const totalCols = titleRow.children.length;
+
         // Convert "Special" header into a searchable input field
         const updatedHeaderCells = Array.from(titleRow.children);
         let specialColIndex = -1;
@@ -130,7 +132,7 @@
 
             // Handle separator rows
             if (cells.length === 1) {
-                cells[0].colSpan = 6;
+                cells[0].colSpan = totalCols;
                 return;
             }
 
@@ -186,15 +188,11 @@
                     }
                 }
 
-                // Check if NW/a cell was already added to this row
-                let ratioCell = null;
-                if (cells.length > 5 && cells[nwHeaderIndex]) {
-                    ratioCell = cells[nwHeaderIndex];
-                }
-
+                // Check if NW/a cell was already added to this row using custom class
+                let ratioCell = tr.querySelector('.ee-nw-cell');
                 if (!ratioCell) {
                     ratioCell = document.createElement('td');
-                    ratioCell.className = 'rt';
+                    ratioCell.className = 'rt ee-nw-cell';
                     if (nwHeaderIndex < cells.length) {
                         tr.insertBefore(ratioCell, cells[nwHeaderIndex]);
                     } else {
@@ -210,7 +208,7 @@
 
         // Special column filter logic
         function applySpecialFilter() {
-            if (!specialInput || specialColIndex === -1) {
+            if (!specialInput) {
                 return;
             }
             const query = specialInput.value.trim().toLowerCase();
@@ -227,11 +225,16 @@
 
                 // Separator rows
                 if (cells.length === 1) {
+                    cells[0].colSpan = totalCols;
                     tr.style.display = query ? 'none' : '';
                     return;
                 }
 
-                const specialCell = cells[specialColIndex] || cells[cells.length - 1];
+                // If table has 7 columns or specialColIndex matches, use last cell / specialColIndex cell
+                const specialCell = (totalCols === 7 || specialColIndex === -1)
+                    ? cells[cells.length - 1]
+                    : (cells[specialColIndex] || cells[cells.length - 1]);
+
                 if (!specialCell) {
                     return;
                 }
