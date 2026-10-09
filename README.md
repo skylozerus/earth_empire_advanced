@@ -13,7 +13,7 @@ All scripts are located in the [`tampermonkey/`](https://github.com/skylozerus/e
 | [`ee_scores_enhancer.user.js`](https://github.com/skylozerus/earth_empire_advanced/blob/master/tampermonkey/ee_scores_enhancer.user.js) | Adds sortable columns and a live name filter (string or RegExp) to the EE search-results table |
 | [`ee_news_search_history.user.js`](https://github.com/skylozerus/earth_empire_advanced/blob/master/tampermonkey/ee_news_search_history.user.js) | Saves the last 5 searched country numbers and adds quick-search buttons above the news form |
 | [`ee_advisor_acres_extractor.user.js`](https://github.com/skylozerus/earth_empire_advanced/blob/master/tampermonkey/ee_advisor_acres_extractor.user.js) | Extracts built acres (Land minus Unused Lands) from the Advisor page and stores it in localStorage |
-| [`ee_tab_title_scroller.user.js`](https://github.com/skylozerus/earth_empire_advanced/blob/master/tampermonkey/ee_tab_title_scroller.user.js) | Formats tab titles with `[SERVER] H1 Title` and continuously scrolls title text for easy tab identification |
+| [`ee_tab_title_scroller.user.js`](https://github.com/skylozerus/earth_empire_advanced/blob/master/tampermonkey/ee_tab_title_scroller.user.js) | Formats tab titles with `[SERVER] EE - [Page]` (from URL path segments) and continuously scrolls title text |
 
 ---
 
