@@ -19,7 +19,7 @@
         'conquest': 'CONQUEST',
         'alliance': 'ALLIANCE',
         'express': 'EXPRESS',
-        'primary': 'PRIMARY',
+        'primary': 'CLASSIC',
         'ffa': 'FFA',
     };
 
@@ -128,10 +128,10 @@
         currentServer = serverDisplay;
         currentPage = page;
 
-        const baseTitle = `[${serverDisplay}] EE - ${page}`;
+        const baseTitle = `[${serverDisplay}] ${page} • EE`;
 
         if (baseTitle.length > 14) {
-            titleBuffer = `${baseTitle}   •   `;
+            titleBuffer = `${baseTitle}  •  `;
             isScrolling = true;
         } else {
             titleBuffer = baseTitle;
